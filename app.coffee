@@ -1,5 +1,6 @@
 info = require('./info.coffee')
 pandora = require('./pandora.coffee')
+fs = require('fs')
 
 time = ->
   return (new Date().getTime() + '').substr(0,10)
@@ -27,9 +28,20 @@ pandora.addListener 'stations', (data) ->
       User.currentStation = station.id
 
 pandora.addListener 'playlist', (data) ->
-  console.log 'got me a playlist'
   User.currentPlaylist = data
-  console.log data
+  for song in User.currentPlaylist
+    console.log "#{song.songTitle} - #{song.artistSummary} : #{song.audioURL}"
+    console.log JSON.stringify(song, null, ' ')
+    pandora.getSong(song)
+    return
+
+pandora.addListener 'song', (song, data) ->
+  if !song.fileName?
+    song.fileName = "#{song.songTitle}.mp3"
+
+  writeStream = fs.createWriteStream(song.fileName, { flags: 'a', encoding: 'binary' })
+  console.log writeStream
+  writeStream.end(data, 'binary')
 
 pandora.addListener 'err', (str, data) ->
   console.log "error performing #{str} - #{data}"

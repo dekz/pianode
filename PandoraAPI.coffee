@@ -55,12 +55,23 @@ getPlaylist = (t, token, stationId, format, cb) ->
     path: uri,
     method: 'POST' }
   cb(encrypted, opts)
+ 
+getSong = (url, cb) ->
+  url = url.replace('http://', '')
+  endOfHost = url.lastIndexOf('pandora.com')+11
+  opts = {
+    host: url.substr(0, endOfHost)
+    port: pandora_rpc_port,
+    path: url.substr(endOfHost, url.length),
+    method: 'GET' }
+  cb('', opts)
 
 module.exports = {
   authUser: authUser,
   getStations: getStations,
   getPlaylist: getPlaylist,
   sync: sync,
+  getSong: getSong,
   pandora_host: pandora_host,
   pandora_rpc_port: pandora_rpc_port,
   pandora_rpc_path: pandora_rpc_path,

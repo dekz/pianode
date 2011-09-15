@@ -13,8 +13,11 @@ time = ->
 
 Pandora.sync = (cb) ->
   PandoraAPI.sync((encrypted, opts) ->
-    dohttppost encrypted, opts, (data, err) ->
+    doHttpReq encrypted, opts, (data, err) ->
       parser.once 'end', (result) ->
+        if !result.params?
+          handleFault('sync', result)
+          return
         result = result.params.param.value
         Pandora.emit('sync', result)
       if err?
@@ -25,7 +28,7 @@ Pandora.sync = (cb) ->
 
 Pandora.authUser = (t, username, password, cb) ->
   PandoraAPI.authUser(t, username, password, (encrypted, opts) ->
-    dohttppost(encrypted, opts, (data, err) ->
+    doHttpReq(encrypted, opts, (data, err) ->
       parser.once 'end', (result) ->
         if result.fault?
           handleFault('auth', result)
@@ -41,7 +44,7 @@ Pandora.authUser = (t, username, password, cb) ->
 
 Pandora.getStations = (t, token, cb) ->
   PandoraAPI.getStations(t, token, (encrypted, opts) ->
-    dohttppost(encrypted, opts, (data, err) ->
+    doHttpReq(encrypted, opts, (data, err) ->
       parser.once 'end', (result) ->
         stations = result.params.param.value.array.data.value
         stationList = []
@@ -60,7 +63,7 @@ Pandora.getStations = (t, token, cb) ->
 
 Pandora.getPlaylist = (t, token, stationid, format, cb) ->
   PandoraAPI.getPlaylist(t, token, stationid, format, (encrypted, opts) ->
-    dohttppost(encrypted, opts, (data, err) ->
+    doHttpReq(encrypted, opts, (data, err) ->
       parser.once 'end', (result) ->
         result = result.params.param.value.array.data.value
         songs = []
@@ -88,9 +91,15 @@ Pandora.getPlaylist = (t, token, stationid, format, cb) ->
     )
   )
   
-dohttppost = (data, opts, cb) ->
+Pandora.getSong = (song) ->
+  PandoraAPI.getSong song.audioURL, (encrypted, opts) ->
+    doHttpReq '', opts, (data, err) ->
+      Pandora.emit('song', song, data)
+    , 'binary'
+
+doHttpReq = (data, opts, cb, encoding) ->
   req = http.request opts, (res) ->
-    res.setEncoding 'utf8'
+    res.setEncoding(encoding or 'utf8')
     body = ''
     res.on 'data', (chunk) ->
       body += chunk
@@ -98,8 +107,6 @@ dohttppost = (data, opts, cb) ->
       cb(body)
     res.on 'error', (chunk) ->
       console.log "err: #{chunk}"
-      cb(body, chunk)
-
   req.write data
   req.end()
     
