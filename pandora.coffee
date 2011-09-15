@@ -1,74 +1,58 @@
-pandora_host = "www.pandora.com"
-pandora_rpc_port = 80
-pandora_protocol_version = "31"
-pandora_rpc_path = "/radio/xmlrpc/v" + pandora_protocol_version + "?"
-
 crypt = require('./crypt.js')
 sys = require('sys')
 http = require('http')
 xml2js = require('xml2js')
+PandoraAPI = require('./PandoraApi.coffee')
 info = require('./info.coffee')
+
+parser = new xml2js.Parser()
 
 time = ->
   return (new Date().getTime() + '').substr(0,10)
 
+PandoraUser = {
+  username: info.username,
+  password: info.password,
+  stations: [],
+  authToken: "-1"
+  audio_format: info.audio_format or 'mp3-hifi'
+}
+
 sync = (cb) ->
-  xml = "<?xml version=\"1.0\"?><methodCall><methodName>misc.sync</methodName><params></params></methodCall>"
-  encrypted = crypt.encrypt(xml)
-  uri = pandora_rpc_path + "rid=" + time().substr(3) + 'P&method=' + 'sync'
-  opts = {
-    host: pandora_host,
-    port: pandora_rpc_port,
-    path: uri,
-    method: 'POST' }
-  doHttpPost('sync', encrypted, opts, cb)
+  PandoraAPI.sync((encrypted, opts) ->
+    dohttppost(encrypted, opts, cb))
 
 authUser = (t, username, password, cb) ->
-  # Use full time for the XML rpc 
-  xml = "<?xml version=\"1.0\"?><methodCall><methodName>listener.authenticateListener</methodName><params><param><value><int>#{t}</int></value></param><param><value><string>#{username}</string></value></param><param><value><string>#{password}</string></value></param></params></methodCall>"
-  encrypted = crypt.encrypt(xml)
-  # Use abbreviated approx time for rid
-  uri = pandora_rpc_path + "rid=" + time().substr(3) + 'P&method=' + 'authenticateListener'
-  opts = {
-    host: pandora_host,
-    port: pandora_rpc_port,
-    path: uri,
-    method: 'POST' }
-  doHttpPost('authenticateListener', encrypted, opts, cb)
+  PandoraAPI.authUser(t, username, password, (encrypted, opts) ->
+    dohttppost(encrypted, opts, cb))
 
 getStations = (t, token, cb) ->
-  xml = "<?xml version=\"1.0\"?><methodCall><methodName>station.getStations</methodName><params><param><value><int>#{t}</int></value></param><param><value><string>#{token}</string></value></param></params></methodCall>"
-  encrypted = crypt.encrypt(xml)
-  # Use abbreviated approx time for rid
-  uri = pandora_rpc_path + "rid=" + time().substr(3) + 'P&method=' + 'getStations'
-  opts = {
-    host: pandora_host,
-    port: pandora_rpc_port,
-    path: uri,
-    method: 'POST' }
-  doHttpPost('getStations', encrypted, opts, cb)
+  PandoraAPI.getStations(t, token, (encrypted, opts) ->
+    dohttppost(encrypted, opts, cb))
 
-doHttpPost = (method, data, opts, cb) ->
-  req = http.request(opts, (res) ->
-    res.setEncoding('utf8')
+getPlaylist = (t, token, stationid, format, cb) ->
+  PandoraAPI.getPlaylist(t, token, stationid, format, (encrypted, opts) ->
+    dohttppost(encrypted, opts, cb))
+
+dohttppost = (data, opts, cb) ->
+  req = http.request opts, (res) ->
+    res.setEncoding 'utf8'
     body = ''
     res.on 'data', (chunk) ->
       body += chunk
-
     res.on 'end', (chunk) ->
       cb(body)
-    
     res.on 'error', (chunk) ->
       console.log "err: #{chunk}"
-  )
-  req.write(data)
+
+  req.write data
   req.end()
     
 run = ->
   t = time()
-  parser = new xml2js.Parser()
-  parser.addListener 'end', (result) ->
-    console.log result
+  PandoraUser.timeToken = t
+  #parser.addListener 'end', (result) ->
+  #  console.log result
 
   sync (data) ->
     parser.once 'end', (result) ->
@@ -77,21 +61,57 @@ run = ->
 
     authUser t, info.username, info.password, (result) ->
       parser.once 'end', (result) ->
-        #        console.log JSON.stringify(result.params.param.value.struct, null, ' ')
         result = result.params.param.value.struct
         for r in result.member
           if r.name is 'authToken'
             console.log "authToken: #{r.value}"
-            getStations t, r.value, (stations) ->
-              parser.once 'end', (result) ->
-                stations = result.params.param.value.array.data.value
-                console.log 'Stations: '
-                for r in stations
-                  for a in r.struct.member
-                    if a.name is 'stationName'
-                      console.log a.value
-              parser.parseString(stations)
-            
+            PandoraUser.authToken = r.value
+            updateStations()
+
       parser.parseString(result)
+
+updateStations = ->
+  getStations PandoraUser.timeToken, PandoraUser.authToken, (stations) ->
+    parser.once 'end', (result) ->
+      console.log result
+      stations = result.params.param.value.array.data.value
+      for r in stations
+        station = { otherInfo: r }
+        for a in r.struct.member
+          if a.name is 'stationName'
+            station.name = a.value
+          if a.name is 'stationId'
+            station.id = a.value
+        PandoraUser.stations.push(station)
+    parser.parseString(stations)
+
+    for station in PandoraUser.stations
+      if station.name is 'chilled'
+        getPlaylist(PandoraUser.timeToken, PandoraUser.authToken, station.id, PandoraUser.audio_format,
+          handlePlaylist)
+
+handlePlaylist = (data) ->
+  parser.once 'end', (result) ->
+    result = result.params.param.value.array.data.value
+    for item in result
+      song = { otherInfo: item }
+      for v in item.struct.member
+        if v.name is 'songTitle'
+          song.songTitle = v.value
+        if v.name is 'artistSummary'
+          song.artistSummary = v.value
+        if v.name is 'albumTitle'
+          song.albumTitle = v.value
+        if v.name is 'audioURL'
+          url = v.value.slice(0,-48) + crypt.decrypt(v.value.substr(-48))
+          song.audioURL = url
+        if v.name is 'audioEncoding'
+          song.audioEncoding = v.value
+        if v.name is 'artRadio'
+          song.artRadio = v.value
+        if v.name is 'songDetailURL'
+          song.songDetailURL = v.value
+      console.log song
+  parser.parseString(data)
 
 run()
