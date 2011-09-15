@@ -40,7 +40,6 @@ pandora.addListener 'song', (song, data) ->
     song.fileName = "#{song.songTitle}.mp3"
 
   writeStream = fs.createWriteStream(song.fileName, { flags: 'a', encoding: 'binary' })
-  console.log writeStream
   writeStream.end(data, 'binary')
 
 pandora.addListener 'err', (str, data) ->
