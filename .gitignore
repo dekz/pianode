@@ -2,3 +2,4 @@ node_modules
 info.coffee
 mp3
 *.mp3
+test

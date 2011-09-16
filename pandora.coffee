@@ -1,11 +1,12 @@
-PandoraAPI = require('./PandoraApi.coffee')
 crypt = require('./crypt.js')
 sys = require('sys')
 http = require('http')
 xml2js = require('xml2js')
 parser = new xml2js.Parser()
-EventEmitter = require('events').EventEmitter
+fs = require('fs')
 
+EventEmitter = require('events').EventEmitter
+PandoraAPI = require('./PandoraApi.coffee')
 Pandora = new EventEmitter()
 
 time = ->
@@ -91,11 +92,23 @@ Pandora.getPlaylist = (t, token, stationid, format, cb) ->
     )
   )
   
-Pandora.getSong = (song) ->
+Pandora.getSong = (song, dir) ->
   PandoraAPI.getSong song.audioURL, (encrypted, opts) ->
-    doHttpReq '', opts, (data, err) ->
-      Pandora.emit('song', song, data)
-    , 'binary'
+    req = http.request opts, (res) ->
+      if !song.fileName?
+        song.fileName = "#{dir}/#{song.songTitle} - #{song.artistSummary}.mp3"
+      writeStream = fs.createWriteStream(song.fileName, {flags: 'a', encoding: 'binary' })
+      res.setEncoding('binary')
+      res.on 'data', (chunk) ->
+        writeStream.write(chunk, 'binary')
+        song.fileState = 'streaming'
+        Pandora.emit('song', song)
+      res.on 'end', (chunk) ->
+        #write to file, close, emit
+        song.fileState = 'complete'
+        writeStream.end(chunk, 'binary')
+        Pandora.emit('song', song)
+    req.end()
 
 doHttpReq = (data, opts, cb, encoding) ->
   req = http.request opts, (res) ->

@@ -1,18 +1,18 @@
 info = require('./info.coffee')
 pandora = require('./pandora.coffee')
-fs = require('fs')
 
 time = ->
   return (new Date().getTime() + '').substr(0,10)
 t = time()
 
 User = {
-  authToken: -1
+#  authToken: -1
   stations: []
-  currentPlaylist: {}
-  currentStation: -1
+#  currentPlaylist: {}
+#  currentStation: -1
 }
 
+completedSongs = 0
 pandora.addListener 'sync', (data) ->
   pandora.authUser(t, info.username, info.password)
 
@@ -30,17 +30,13 @@ pandora.addListener 'stations', (data) ->
 pandora.addListener 'playlist', (data) ->
   User.currentPlaylist = data
   for song in User.currentPlaylist
-    console.log "#{song.songTitle} - #{song.artistSummary} : #{song.audioURL}"
-    console.log JSON.stringify(song, null, ' ')
-    pandora.getSong(song)
-    return
+    console.log "#{song.songTitle} - #{song.artistSummary}"
+    pandora.getSong(song, info.download_dir)
 
-pandora.addListener 'song', (song, data) ->
-  if !song.fileName?
-    song.fileName = "#{song.songTitle}.mp3"
-
-  writeStream = fs.createWriteStream(song.fileName, { flags: 'a', encoding: 'binary' })
-  writeStream.end(data, 'binary')
+pandora.addListener 'song', (song, status) ->
+  if song.fileState is 'complete'
+    # file is fully completed
+    console.log "#{song.fileName} completed"
 
 pandora.addListener 'err', (str, data) ->
   console.log "error performing #{str} - #{data}"
