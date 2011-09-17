@@ -1,5 +1,6 @@
 info = require('./info.coffee')
 pandora = require('./pandora.coffee')
+Tag = require('taglib').Tag
 
 time = ->
   return (new Date().getTime() + '').substr(0,10)
@@ -39,6 +40,16 @@ pandora.addListener 'song', (song, status) ->
   if song.fileState is 'complete'
     # file is fully completed
     console.log "#{song.songTitle} downloaded to #{song.dir} "
+    # should tag before writing any data TODO
+    console.log "tagging"
+    t = new Tag "#{song.dir}#{song.fileName}"
+    t.title = "#{song.songTitle}"
+    t.artist = "#{song.artistSummary}"
+    t.album = "#{song.albumTitle}"
+    t.save()
+    t = new Tag "#{song.dir}#{song.fileName}"
+    console.log JSON.stringify t
+
 
 pandora.addListener 'err', (str, data) ->
   console.log "error performing #{str} - #{data}"

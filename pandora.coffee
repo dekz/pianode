@@ -94,13 +94,9 @@ Pandora.getPlaylist = (t, token, stationid, format, cb) ->
 Pandora.getSong = (song, dir) ->
   PandoraAPI.getSong song.audioURL, (encrypted, opts) ->
     req = http.request opts, (res) ->
-      if !song.fileName?
-        localDir = "#{dir}/#{song.artistSummary}/#{song.albumTitle}/"
-        song.dir = localDir
-        common.mkdirsP localDir, '0777', console.log
-        song.fileName = "#{song.songTitle}.mp3"
-
-      writeStream = fs.createWriteStream(localDir + song.fileName, {flags: 'w', encoding: 'binary' })
+      writeStream = null
+      createSongFile song, dir, (fileName) ->
+        writeStream = fs.createWriteStream(fileName + song.fileName, {flags: 'w', encoding: 'binary' })
       res.setEncoding('binary')
       res.on 'data', (chunk) ->
         writeStream.write(chunk, 'binary')
@@ -112,6 +108,15 @@ Pandora.getSong = (song, dir) ->
         writeStream.end(chunk, 'binary')
         Pandora.emit('song', song)
     req.end()
+
+createSongFile = (song, dir, cb) ->
+  localDir = "#{dir}/#{song.artistSummary}/#{song.albumTitle}/"
+  if !song.fileName?
+    song.dir = localDir
+    song.fileName = "#{song.songTitle}.mp3"
+  common.mkdirsP localDir, '0777', (fileName) ->
+    cb fileName 
+
 
 doHttpReq = (data, opts, cb, encoding) ->
   if Pandora.proxy.proxy
