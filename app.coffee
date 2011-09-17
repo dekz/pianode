@@ -12,6 +12,8 @@ User = {
 #  currentStation: -1
 }
 
+pandora.proxy = { proxy: info.proxy, proxy_host: info.proxy_host, proxy_port: info.proxy_port }
+
 completedSongs = 0
 pandora.addListener 'sync', (data) ->
   pandora.authUser(t, info.username, info.password)
@@ -36,7 +38,7 @@ pandora.addListener 'playlist', (data) ->
 pandora.addListener 'song', (song, status) ->
   if song.fileState is 'complete'
     # file is fully completed
-    console.log "#{song.fileName} completed"
+    console.log "#{song.songTitle} downloaded to #{song.dir} "
 
 pandora.addListener 'err', (str, data) ->
   console.log "error performing #{str} - #{data}"

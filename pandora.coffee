@@ -8,6 +8,8 @@ fs = require('fs')
 EventEmitter = require('events').EventEmitter
 PandoraAPI = require('./PandoraApi.coffee')
 Pandora = new EventEmitter()
+Proxy = { proxy: false }
+Pandora.proxy = Proxy
 
 time = ->
   return (new Date().getTime() + '').substr(0,10)
@@ -86,6 +88,8 @@ Pandora.getPlaylist = (t, token, stationid, format, cb) ->
               song.artRadio = v.value
             if v.name is 'songDetailURL'
               song.songDetailURL = v.value
+            if v.name is 'albumTitle'
+              song.albumTitle = v.value
           songs.push song
         Pandora.emit('playlist', songs)
       parser.parseString(data)
@@ -96,8 +100,17 @@ Pandora.getSong = (song, dir) ->
   PandoraAPI.getSong song.audioURL, (encrypted, opts) ->
     req = http.request opts, (res) ->
       if !song.fileName?
-        song.fileName = "#{dir}/#{song.songTitle} - #{song.artistSummary}.mp3"
-      writeStream = fs.createWriteStream(song.fileName, {flags: 'a', encoding: 'binary' })
+        localDir = "#{dir}/#{song.artistSummary}/#{song.albumTitle}/"
+        song.dir = localDir
+        try
+          fs.lstatSync(localDir).isDirectory()
+        catch e
+          fs.mkdirSync localDir, '0777'
+          console.log 'Creating dir ' + localDir
+        song.fileName = "#{song.songTitle}.mp3"
+
+      console.log JSON.stringify(song)
+      writeStream = fs.createWriteStream(localDir + song.fileName, {flags: 'w', encoding: 'binary' })
       res.setEncoding('binary')
       res.on 'data', (chunk) ->
         writeStream.write(chunk, 'binary')
@@ -111,6 +124,13 @@ Pandora.getSong = (song, dir) ->
     req.end()
 
 doHttpReq = (data, opts, cb, encoding) ->
+  if Pandora.proxy.proxy
+    proxy = Pandora.proxy
+    opts.headers = { Host: opts.host }
+    opts.host = proxy["proxy_host"]
+    opts.port = proxy["proxy_port"]
+  else
+    console.log 'not proxying'
   req = http.request opts, (res) ->
     res.setEncoding(encoding or 'utf8')
     body = ''
