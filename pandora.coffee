@@ -4,6 +4,7 @@ http = require('http')
 xml2js = require('xml2js')
 parser = new xml2js.Parser()
 fs = require('fs')
+common = require('./utils.coffee')
 
 EventEmitter = require('events').EventEmitter
 PandoraAPI = require('./PandoraApi.coffee')
@@ -15,7 +16,7 @@ time = ->
   return (new Date().getTime() + '').substr(0,10)
 
 Pandora.sync = (cb) ->
-  PandoraAPI.sync((encrypted, opts) ->
+  PandoraAPI.sync (encrypted, opts) ->
     doHttpReq encrypted, opts, (data, err) ->
       parser.once 'end', (result) ->
         if !result.params?
@@ -27,11 +28,10 @@ Pandora.sync = (cb) ->
         Pandora.emit('err', 'sync', err)
         return
       parser.parseString(data)
-  )
 
 Pandora.authUser = (t, username, password, cb) ->
-  PandoraAPI.authUser(t, username, password, (encrypted, opts) ->
-    doHttpReq(encrypted, opts, (data, err) ->
+  PandoraAPI.authUser t, username, password, (encrypted, opts) ->
+    doHttpReq encrypted, opts, (data, err) ->
       parser.once 'end', (result) ->
         if result.fault?
           handleFault('auth', result)
@@ -43,11 +43,10 @@ Pandora.authUser = (t, username, password, cb) ->
        parser.once 'error', (result) ->
          console.log 'error parsing auth: ' + err
       parser.parseString(data)
-    ))
 
 Pandora.getStations = (t, token, cb) ->
-  PandoraAPI.getStations(t, token, (encrypted, opts) ->
-    doHttpReq(encrypted, opts, (data, err) ->
+  PandoraAPI.getStations t, token, (encrypted, opts) ->
+    doHttpReq encrypted, opts, (data, err) ->
       parser.once 'end', (result) ->
         stations = result.params.param.value.array.data.value
         stationList = []
@@ -61,12 +60,10 @@ Pandora.getStations = (t, token, cb) ->
           stationList.push station
         Pandora.emit('stations', stationList)
       parser.parseString(data)
-      )
-    )
 
 Pandora.getPlaylist = (t, token, stationid, format, cb) ->
-  PandoraAPI.getPlaylist(t, token, stationid, format, (encrypted, opts) ->
-    doHttpReq(encrypted, opts, (data, err) ->
+  PandoraAPI.getPlaylist t, token, stationid, format, (encrypted, opts) ->
+    doHttpReq encrypted, opts, (data, err) ->
       parser.once 'end', (result) ->
         result = result.params.param.value.array.data.value
         songs = []
@@ -80,7 +77,7 @@ Pandora.getPlaylist = (t, token, stationid, format, cb) ->
             if v.name is 'albumTitle'
               song.albumTitle = v.value
             if v.name is 'audioURL'
-              url = v.value.slice(0,-48) + crypt.decrypt(v.value.substr(-48))
+              url = v.value.slice(0,-48) + crypt.decrypt v.value.substr(-48)
               song.audioURL = url
             if v.name is 'audioEncoding'
               song.audioEncoding = v.value
@@ -93,23 +90,16 @@ Pandora.getPlaylist = (t, token, stationid, format, cb) ->
           songs.push song
         Pandora.emit('playlist', songs)
       parser.parseString(data)
-    )
-  )
-  
+
 Pandora.getSong = (song, dir) ->
   PandoraAPI.getSong song.audioURL, (encrypted, opts) ->
     req = http.request opts, (res) ->
       if !song.fileName?
         localDir = "#{dir}/#{song.artistSummary}/#{song.albumTitle}/"
         song.dir = localDir
-        try
-          fs.lstatSync(localDir).isDirectory()
-        catch e
-          fs.mkdirSync localDir, '0777'
-          console.log 'Creating dir ' + localDir
+        common.mkdirsP localDir, '0777', console.log
         song.fileName = "#{song.songTitle}.mp3"
 
-      console.log JSON.stringify(song)
       writeStream = fs.createWriteStream(localDir + song.fileName, {flags: 'w', encoding: 'binary' })
       res.setEncoding('binary')
       res.on 'data', (chunk) ->
