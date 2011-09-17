@@ -18,28 +18,33 @@ time = ->
 Pandora.sync = (cb) ->
   PandoraAPI.sync (encrypted, opts) ->
     doHttpReq encrypted, opts, (data, err) ->
+      if err?
+        Pandora.emit('err', 'sync', err)
+        return
       parser.once 'end', (result) ->
         if !result.params?
           handleFault('sync', result)
           return
-        result = result.params.param.value
-        Pandora.emit('sync', result)
-      if err?
-        Pandora.emit('err', 'sync', err)
-        return
+        else
+          result = result.params.param.value
+          Pandora.emit('sync', result)
       parser.parseString(data)
 
 Pandora.authUser = (t, username, password, cb) ->
   PandoraAPI.authUser t, username, password, (encrypted, opts) ->
     doHttpReq encrypted, opts, (data, err) ->
+      if err?
+        Pandora.emit('err', 'auth', err)
+        return
       parser.once 'end', (result) ->
-        if result.fault?
+        if result.fault? or !result.params?
           handleFault('auth', result)
           return
-        result = result.params.param.value.struct
-        for r in result.member
-          if r.name is 'authToken'
-            Pandora.emit('auth', r.value)
+        else
+          result = result.params.param.value.struct
+          for r in result.member
+            if r.name is 'authToken'
+              Pandora.emit('auth', r.value)
        parser.once 'error', (result) ->
          console.log 'error parsing auth: ' + err
       parser.parseString(data)
@@ -47,7 +52,13 @@ Pandora.authUser = (t, username, password, cb) ->
 Pandora.getStations = (t, token, cb) ->
   PandoraAPI.getStations t, token, (encrypted, opts) ->
     doHttpReq encrypted, opts, (data, err) ->
+      if err?
+        Pandora.emit('err', 'auth', err)
+        return
       parser.once 'end', (result) ->
+        if !result.params?
+          handleFault('stations', result)
+          return
         stations = result.params.param.value.array.data.value
         stationList = []
         for r in stations
@@ -64,7 +75,13 @@ Pandora.getStations = (t, token, cb) ->
 Pandora.getPlaylist = (t, token, stationid, format, cb) ->
   PandoraAPI.getPlaylist t, token, stationid, format, (encrypted, opts) ->
     doHttpReq encrypted, opts, (data, err) ->
+      if err?
+        Pandora.emit('err', 'playlist', err)
+        return
       parser.once 'end', (result) ->
+        if !result.params?
+          handleFault('playlist', result)
+          return
         result = result.params.param.value.array.data.value
         songs = []
         for item in result
@@ -87,6 +104,8 @@ Pandora.getPlaylist = (t, token, stationid, format, cb) ->
               song.songDetailURL = v.value
             if v.name is 'albumTitle'
               song.albumTitle = v.value
+            if v.name is 'genre' and v.value.array?
+              song.genre = v.value.array.data.value
           songs.push song
         Pandora.emit('playlist', songs)
       parser.parseString(data)
@@ -115,7 +134,7 @@ createSongFile = (song, dir, cb) ->
     song.dir = localDir
     song.fileName = "#{song.songTitle}.mp3"
   common.mkdirsP localDir, '0777', (fileName) ->
-    cb fileName 
+    cb fileName
 
 
 doHttpReq = (data, opts, cb, encoding) ->
@@ -139,6 +158,7 @@ doHttpReq = (data, opts, cb, encoding) ->
   req.end()
     
 handleFault = (str, result) ->
+  console.log 'Got a fault ' + str
   if result.fault?
     for a in result.fault.value.struct.member
       if a.name is 'faultString'

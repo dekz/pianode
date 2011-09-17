@@ -1,6 +1,12 @@
 info = require('./info.coffee')
 pandora = require('./pandora.coffee')
 Tag = require('taglib').Tag
+prompt = require('prompt')
+colors = require('colors')
+
+prompt.message = '> '
+prompt.delimiter = ''
+prompt.start()
 
 time = ->
   return (new Date().getTime() + '').substr(0,10)
@@ -15,11 +21,21 @@ User = {
 
 pandora.proxy = { proxy: info.proxy, proxy_host: info.proxy_host, proxy_port: info.proxy_port }
 
+debug = {
+  log: (msg) ->
+    console.log 'DEBUG: '.grey + msg
+  info: (msg) ->
+    console.log 'INFO: '.blue + msg
+}
+
 completedSongs = 0
+
 pandora.addListener 'sync', (data) ->
+  debug.info 'Syncing with pandora. Using proxy? ' + pandora.proxy.proxy
   pandora.authUser(t, info.username, info.password)
 
 pandora.addListener 'auth', (data) ->
+  debug.info 'Authed. getting Station list'
   User.authToken = data
   pandora.getStations(t, User.authToken)
 
@@ -29,29 +45,51 @@ pandora.addListener 'stations', (data) ->
     if station.name is 'chilled'
       pandora.getPlaylist(t, User.authToken, station.id, info.audio_format)
       User.currentStation = station.id
+      setInterval((id) ->
+        debug.info "Downloaded #{completedSongs} songs"
+        debug.log 'Getting playlist for ' + station.name
+        pandora.getPlaylist(t, User.authToken, station.id, info.audio_format)
+      , 120000)
 
 pandora.addListener 'playlist', (data) ->
   User.currentPlaylist = data
+  debug.info 'Playlist: '
   for song in User.currentPlaylist
-    console.log "#{song.songTitle} - #{song.artistSummary}"
+    debug.info "\t #{song.songTitle} - #{song.artistSummary}"
     pandora.getSong(song, info.download_dir)
 
 pandora.addListener 'song', (song, status) ->
   if song.fileState is 'complete'
     # file is fully completed
-    console.log "#{song.songTitle} downloaded to #{song.dir} "
+    completedSongs++
     # should tag before writing any data TODO
-    console.log "tagging"
-    t = new Tag "#{song.dir}#{song.fileName}"
-    t.title = "#{song.songTitle}"
-    t.artist = "#{song.artistSummary}"
-    t.album = "#{song.albumTitle}"
-    t.save()
-    t = new Tag "#{song.dir}#{song.fileName}"
-    console.log JSON.stringify t
+    tag = new Tag "#{song.dir}#{song.fileName}"
+    tag.title = "#{song.songTitle}"
+    tag.artist = "#{song.artistSummary}"
+    tag.album = "#{song.albumTitle}"
+    tag.genre = "#{song.genre}"
+    tag.save()
 
+    debug.log "#{JSON.stringify tag}".blue
+    debug.log "#{song.songTitle} downloaded to #{song.dir} "
 
 pandora.addListener 'err', (str, data) ->
-  console.log "error performing #{str} - #{data}"
+  console.log "ERR: ".red
+  console.log "\t #{str} : #{JSON.stringify data}"
 
-pandora.sync()
+app = () ->
+  getCredentials () ->
+    pandora.sync()
+
+getCredentials = (cb) ->
+  if !info.username?
+    prompt.get 'username', (err, result) ->
+      info.username = result.username
+  if !info.password?
+    prompt.get {name: 'password', hidden: true}, (err, result) ->
+      info.password = result.password
+      cb null
+  else
+    cb null
+
+app()

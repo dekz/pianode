@@ -24,6 +24,7 @@ dependencies:
   'coffee-script' : '>= 1'
   'xml2js' : '>= 0.1'
   'taglib' : '>= 0.0.0'
+  'prompt' : '>= 0.0.0'
 
 engines:
   node: '>= 0.4.0'
