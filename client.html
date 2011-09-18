@@ -1,0 +1,60 @@
+<script src="/socket.io/socket.io.js"></script>
+<script src="/node_modules/audiolib/lib/audiolib.js"></script>
+
+<script src="/src/jsmad/mad.js"></script>
+
+<script src="/src/jsmad/rq_table.js"></script>
+<script src="/src/jsmad/imdct_s.js"></script>
+<script src="/src/jsmad/huffman.js"></script>
+<script src="/src/jsmad/bit.js"></script>
+<script src="/src/jsmad/stream.js"></script>
+<script src="/src/jsmad/layer3.js"></script>
+<script src="/src/jsmad/frame.js"></script>
+<script src="/src/jsmad/synth.js"></script>
+
+<script src="/src/jsmad/bytestream.js"></script>
+<script src="/src/jsmad/filestream.js"></script>
+<script src="/src/jsmad/substream.js"></script>
+<script src="/src/jsmad/id3v22stream.js"></script>
+<script src="/src/jsmad/id3v23stream.js"></script>
+<script src="/src/jsmad/mp3file.js"></script>
+<script src="/src/jsmad/stringstream.js"></script>
+
+
+<script src="/src/jsmad/player.js"></script>
+
+
+<script>
+	(function(){
+window.onload	= function(){
+
+	var player, stream, socket;
+    socket = io.connect('http://localhost:1337');
+
+	socket.on('data', function (data) {
+  	  if (stream !== undefined) {
+  	      var newBuffer = stream.state['buffer'] + data
+		  
+		  stream.state['buffer'] = newBuffer;
+  	  	  stream.state['amountRead'] = newBuffer.length;
+  	  	  stream.state['length'] = newBuffer.length;
+  	  } else {
+  	      console.log('Creating new stream');
+		  s = new Mad.StringStream(data);
+		  console.log(JSON.stringify(s));
+		  stream = s;
+
+  	  }  
+	  if (player === undefined) {
+		  player = new Mad.Player(stream);
+		  player.createDevice();  	  
+  	  }
+  	  player.setPlaying(true);
+    });
+};
+
+}());
+</script>
+	<body>
+		<button onclick="play()">Play</button>
+	</body>

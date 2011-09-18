@@ -1,12 +1,17 @@
+# Pandora req
 info = require('./info.coffee')
 pandora = require('./src/pandora.coffee')
 Tag = require('taglib').Tag
+# other req
 prompt = require('prompt')
 colors = require('colors')
+path = require('path')
+fs = require('fs')
 
 prompt.message = '> '
 prompt.delimiter = ''
 prompt.start()
+clients = {}
 
 time = ->
   return (new Date().getTime() + '').substr(0,10)
@@ -47,7 +52,7 @@ pandora.addListener 'stations', (data) ->
     console.log "\t #{stationIndex} - #{data[stationIndex]?.name}"
 
   prompt.get 'station', (err, result) ->
-    User.currentStation = station
+    User.currentStation = data[result.station]
     pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
     setInterval((id) ->
       debug.info "Downloaded #{completedSongs} songs"
@@ -61,8 +66,9 @@ pandora.addListener 'playlist', (data) ->
   for song in User.currentPlaylist
     debug.info "\t #{song.songTitle} - #{song.artistSummary}"
     pandora.getSong(song, info.download_dir)
+    return
 
-pandora.addListener 'song', (song, status) ->
+pandora.addListener 'song', (song) ->
   if song.fileState is 'complete'
     # file is fully completed
     completedSongs++
@@ -73,6 +79,10 @@ pandora.addListener 'song', (song, status) ->
     tag.album = "#{song.albumTitle}"
     tag.genre = "#{song.genre}"
     tag.save()
+    data = fs.readFile("#{song.dir}#{song.fileName}", 'binary', (err, data) ->
+      for s in clients
+        s.emit 'data', data
+    )
 
     debug.log "#{JSON.stringify tag}".blue
     debug.log "#{song.songTitle} downloaded to #{song.dir} "
@@ -80,10 +90,6 @@ pandora.addListener 'song', (song, status) ->
 pandora.addListener 'err', (str, data) ->
   console.log "ERR: ".red
   console.log "\t #{str} : #{JSON.stringify data}"
-
-app = () ->
-  getCredentials () ->
-    pandora.sync()
 
 getCredentials = (cb) ->
   if !info.username?
@@ -96,4 +102,52 @@ getCredentials = (cb) ->
   else
     cb null
 
-app()
+
+app = require('http').createServer((req, res) ->
+  handler(req, res)
+)
+io = require('socket.io')
+io = io.listen(app)
+app.listen 1337
+
+test = io.of('./test').on('connection', console.log)
+
+io.sockets.on 'connection', (socket) ->
+
+  clients[socket.id] = socket
+
+  socket.on 'disconnect', ->
+    for s in clients
+      if s.id is socket.id
+        console.log 'Remove ' + s.id
+
+  socket.emit 'news', { hello: 'world' }
+  socket.on 'my other event', (data) ->
+    console.log data
+
+  setTimeout( ->
+    fileName = "./mp3/Between The Buried And Me/Alaska/Medicine Wheel.mp3"
+    readStream = fs.createReadStream fileName, { 'flags' : 'r', 'encoding': 'binary', 'bufferSize' : 1024*4 }
+    readStream.on 'data', (data) ->
+      socket.emit 'data', data
+  , 1000)
+
+handler = (req, res) ->
+  filePath = '.' + req.url
+  if filePath is './'
+    filePath = './client.html'
+  path.exists filePath, (exists) ->
+    if exists
+      fs.readFile filePath, (err, data) ->
+        if err
+          res.writeHead 500
+          res.end 'Error loading ' + filePath
+        else
+          res.writeHead 200, { 'Content-Type': 'text/html' }
+          res.end data, 'utf8'
+
+run = ->
+  #getCredentials(pandora.sync)
+  io.set 'log level', 1
+
+run()
