@@ -1,5 +1,5 @@
 info = require('./info.coffee')
-pandora = require('./pandora.coffee')
+pandora = require('./src/pandora.coffee')
 Tag = require('taglib').Tag
 prompt = require('prompt')
 colors = require('colors')
@@ -41,19 +41,23 @@ pandora.addListener 'auth', (data) ->
 
 pandora.addListener 'stations', (data) ->
   User.stations = data
-  for station in data
-    if station.name is 'chilled'
-      pandora.getPlaylist(t, User.authToken, station.id, info.audio_format)
-      User.currentStation = station.id
-      setInterval((id) ->
-        debug.info "Downloaded #{completedSongs} songs"
-        debug.log 'Getting playlist for ' + station.name
-        pandora.getPlaylist(t, User.authToken, station.id, info.audio_format)
-      , 120000)
+
+  console.log 'Stations:'
+  for stationIndex in [0..(data.length-1)]
+    console.log "\t #{stationIndex} - #{data[stationIndex]?.name}"
+
+  prompt.get 'station', (err, result) ->
+    User.currentStation = station
+    pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
+    setInterval((id) ->
+      debug.info "Downloaded #{completedSongs} songs"
+      debug.log 'Getting playlist for ' + User.currentStation.name
+      pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
+    , 180000)
 
 pandora.addListener 'playlist', (data) ->
   User.currentPlaylist = data
-  debug.info 'Playlist: '
+  debug.info 'Playlist'
   for song in User.currentPlaylist
     debug.info "\t #{song.songTitle} - #{song.artistSummary}"
     pandora.getSong(song, info.download_dir)
