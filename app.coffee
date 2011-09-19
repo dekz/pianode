@@ -55,21 +55,30 @@ pandora.addListener 'stations', (data) ->
   prompt.get 'station', (err, result) ->
     User.currentStation = data[result.station]
     pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
-    setInterval((id) ->
-      debug.info "Downloaded #{completedSongs} songs"
-      debug.log 'Getting playlist for ' + User.currentStation.name
-      pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
-    , 180000)
+#    setInterval((id) ->
+#      debug.info "Downloaded #{completedSongs} songs"
+#      debug.log 'Getting playlist for ' + User.currentStation.name
+#      pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
+#    , 180000)
 
 pandora.addListener 'playlist', (data) ->
-  User.currentPlaylist = data
+  User.currentPlaylist = []
   debug.info 'Playlist'
-  for song in User.currentPlaylist
-    debug.info "\t #{song.songTitle} - #{song.artistSummary}"
-    pandora.getSong(song)
-    return
+  for song in data
+    User.currentPlaylist.push(song)
+  pandora.getSong(User.currentPlaylist.pop())
 
-pandora.addListener 'song', (song, chunk) ->
+getNextSong = () ->
+  console.log 'Getting next song'
+  if !User.currentPlaylist? or User.currentPlaylist.length is 0
+    if !User.currentStation?
+      return
+    pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
+   else
+     song = User.currentPlaylist.pop()
+     pandora.getSong(song)
+
+pandora.addListener 'song!!', (song, chunk) ->
   if !song.writeStream?
     createSongFile song, info.download_dir, (fileName) ->
       song.writeStream = fs.createWriteStream(fileName + song.fileName, {flags: 'w', encoding: 'binary' }
@@ -124,23 +133,28 @@ app = require('http').createServer((req, res) ->
 )
 io = require('socket.io')
 io = io.listen(app)
+io.set 'log level', 1
 app.listen 1337
-
-test = io.of('./test').on('connection', console.log)
 
 io.sockets.on 'connection', (socket) ->
   clients[socket.id] = socket
+  getCredentials(pandora.sync)
 
   socket.on 'disconnect', ->
     delete clients[socket.id]
+  
+  pandora.addListener 'song', (song, chunk) ->
+    socket.emit 'data', song, chunk
 
   socket.on 'newSong', ->
-    fileName = songFiles[Math.floor(Math.random() * songFiles.length)]
-    readStream = fs.createReadStream fileName, { 'flags' : 'r', 'encoding': 'binary', 'bufferSize' : 1024*4 }
-    readStream.on 'data', (data) ->
-      socket.emit 'data', { fileName: fileName },  data
+    getNextSong()
+#    fileName = songFiles[Math.floor(Math.random() * songFiles.length)]
+#    readStream = fs.createReadStream fileName, { 'flags' : 'r', 'encoding': 'binary', 'bufferSize' : 1024*4 }
+#    readStream.on 'data', (data) ->
+#      socket.emit 'data', { fileName: fileName },  data
 
 songFiles = []
+
 loadFiles = ->
   finder = findit.find('./mp3')
   finder.on 'file', (file) ->
@@ -162,9 +176,3 @@ handler = (req, res) ->
         else
           res.writeHead 200, { 'Content-Type': 'text/html' }
           res.end data, 'utf8'
-
-run = ->
-  #getCredentials(pandora.sync)
-  io.set 'log level', 1
-
-run()

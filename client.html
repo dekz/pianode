@@ -1,4 +1,5 @@
 <script src="/socket.io/socket.io.js"></script>
+<script src="/public/jquery-1.6.4/jquery-1.6.4.min.js"></script>
 <script src="/node_modules/audiolib/lib/audiolib.js"></script>
 
 <script src="/src/jsmad/mad.js"></script>
@@ -40,8 +41,17 @@ window.onload	= function(){
 	window.pause = function() {
 		if (player !== undefined) {
 			player.setPlaying(!player.playing);
+			$("#toggle_play_button").text(player.playing ? "Pause" : "Play");
 		}
 	}
+	
+	function secondsToHms(d) {
+		d = Number(d);
+		var h = Math.floor(d / 3600);
+		var m = Math.floor(d % 3600 / 60);
+		var s = Math.floor(d % 3600 % 60);
+		return ((h > 0 ? h + ":" : "") + (m > 0 ? (h > 0 && m < 10 ? "0" : "") + m + ":" : "0:") + (s < 10 ? "0" : "") + s); 
+}
 
 	socket.on('data', function (song, data) {
   	  if (stream !== undefined) {
@@ -49,12 +59,23 @@ window.onload	= function(){
   	  } else {
   	    console.log(song);
   	    stream = new Mad.StringStream(data);
+  	    $("#album_art").attr("src", song.artRadio);
+  	    $("#id3_artist_name").text(song.artistSummary);
+  	    $("#id3_song_title").text(song.songTitle);
   	  }  
   	  
 	  if (player === undefined) {
 		  player = new Mad.Player(stream);
 		  player.onPlay = function() {
 			  console.log('Update play UI');
+		  }
+		  
+		  player.onProgress = function(playtime, total, preloaded) {
+		  	$("#playing_time").text(secondsToHms(playtime));
+			   if (total == playtime) {
+				   console.log('Getting new song');
+				   nextSong();
+			   }
 		  }
 		  player.onPause = function() {
 			  console.log('update pause UI');
@@ -67,6 +88,16 @@ window.onload	= function(){
 }());
 </script>
 	<body>
-		<button onclick="nextSong()">Next</button>
-		<button onclick="pause()">Pause</button>
+	<div id="content">
+		<img id="album_art" src="" />
+		<div id="id3">
+			<div id="id3_artist_name"></div>
+			<div id="id3_song_title"></div>
+		</div>
+		<div id="controls">
+			<div id="playing_time"></div>
+			<button onclick="nextSong()">Next</button>
+			<button id="toggle_play_button" onclick="pause()">Pause</button>
+		</div>
+	</div>
 	</body>

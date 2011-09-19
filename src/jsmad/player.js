@@ -118,7 +118,9 @@ Mad.Player.prototype.progress = function () {
 	this.onProgress(playtime, total, preloaded);
     
     var that = this;
-    var nextCall = function() { that.progress(); };
+    var nextCall = function() { 
+		that.progress();
+ 	};
     this.progressTimeout = setTimeout(nextCall, 250);
 }
 
