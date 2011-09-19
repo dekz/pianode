@@ -39,3 +39,10 @@ Mad.StringStream.prototype.get = function(offset, length) {
         throw 'TODO: THROW GET ERROR!';
     }
 }
+
+Mad.StringStream.prototype.buffer = function(data) {
+	var newBuffer = this.state['buffer'] + data
+	this.state['buffer'] = newBuffer;
+	this.state['amountRead'] = newBuffer.length;
+	this.state['length'] = newBuffer.length;	
+}

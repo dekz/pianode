@@ -20,7 +20,6 @@
 <script src="/src/jsmad/mp3file.js"></script>
 <script src="/src/jsmad/stringstream.js"></script>
 
-
 <script src="/src/jsmad/player.js"></script>
 
 
@@ -30,31 +29,44 @@ window.onload	= function(){
 
 	var player, stream, socket;
     socket = io.connect('http://localhost:1337');
+    socket.emit('newSong');
+    window.nextSong = function() {
+        player.setPlaying(false);
+		stream = undefined;	
+		player = undefined;
+		socket.emit('newSong');
+	};
+	
+	window.pause = function() {
+		if (player !== undefined) {
+			player.setPlaying(!player.playing);
+		}
+	}
 
-	socket.on('data', function (data) {
+	socket.on('data', function (song, data) {
   	  if (stream !== undefined) {
-  	      var newBuffer = stream.state['buffer'] + data
-		  
-		  stream.state['buffer'] = newBuffer;
-  	  	  stream.state['amountRead'] = newBuffer.length;
-  	  	  stream.state['length'] = newBuffer.length;
+  	  	stream.buffer(data);
   	  } else {
-  	      console.log('Creating new stream');
-		  s = new Mad.StringStream(data);
-		  console.log(JSON.stringify(s));
-		  stream = s;
-
+  	    console.log(song);
+  	    stream = new Mad.StringStream(data);
   	  }  
+  	  
 	  if (player === undefined) {
 		  player = new Mad.Player(stream);
+		  player.onPlay = function() {
+			  console.log('Update play UI');
+		  }
+		  player.onPause = function() {
+			  console.log('update pause UI');
+		  }
 		  player.createDevice();  	  
+		  player.setPlaying(true);
   	  }
-  	  player.setPlaying(true);
     });
 };
-
 }());
 </script>
 	<body>
-		<button onclick="play()">Play</button>
+		<button onclick="nextSong()">Next</button>
+		<button onclick="pause()">Pause</button>
 	</body>

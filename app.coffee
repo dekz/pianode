@@ -7,6 +7,7 @@ prompt = require('prompt')
 colors = require('colors')
 path = require('path')
 fs = require('fs')
+findit = require('findit')
 
 prompt.message = '> '
 prompt.delimiter = ''
@@ -65,12 +66,23 @@ pandora.addListener 'playlist', (data) ->
   debug.info 'Playlist'
   for song in User.currentPlaylist
     debug.info "\t #{song.songTitle} - #{song.artistSummary}"
-    pandora.getSong(song, info.download_dir)
+    pandora.getSong(song)
     return
 
-pandora.addListener 'song', (song) ->
+pandora.addListener 'song', (song, chunk) ->
+  if !song.writeStream?
+    createSongFile song, info.download_dir, (fileName) ->
+      song.writeStream = fs.createWriteStream(fileName + song.fileName, {flags: 'w', encoding: 'binary' }
+      # should write tag here if possible
+      song.writeStream chunk, 'binary'
+  else
+      # Write the chunk given
+      song.writeStream chunk, 'binary'
+
+
   if song.fileState is 'complete'
     # file is fully completed
+    song.writeStream.end()
     completedSongs++
     # should tag before writing any data TODO
     tag = new Tag "#{song.dir}#{song.fileName}"
@@ -79,10 +91,6 @@ pandora.addListener 'song', (song) ->
     tag.album = "#{song.albumTitle}"
     tag.genre = "#{song.genre}"
     tag.save()
-    data = fs.readFile("#{song.dir}#{song.fileName}", 'binary', (err, data) ->
-      for s in clients
-        s.emit 'data', data
-    )
 
     debug.log "#{JSON.stringify tag}".blue
     debug.log "#{song.songTitle} downloaded to #{song.dir} "
@@ -90,6 +98,14 @@ pandora.addListener 'song', (song) ->
 pandora.addListener 'err', (str, data) ->
   console.log "ERR: ".red
   console.log "\t #{str} : #{JSON.stringify data}"
+
+createSongFile = (song, dir, cb) ->
+   localDir = "#{dir}/#{song.artistSummary}/#{song.albumTitle}/"
+   if !song.fileName?
+     song.dir = localDir
+     song.fileName = "#{song.songTitle}.mp3"
+   common.mkdirsP localDir, '0777', (fileName) ->
+     cb fileName
 
 getCredentials = (cb) ->
   if !info.username?
@@ -113,24 +129,25 @@ app.listen 1337
 test = io.of('./test').on('connection', console.log)
 
 io.sockets.on 'connection', (socket) ->
-
   clients[socket.id] = socket
 
   socket.on 'disconnect', ->
-    for s in clients
-      if s.id is socket.id
-        console.log 'Remove ' + s.id
+    delete clients[socket.id]
 
-  socket.emit 'news', { hello: 'world' }
-  socket.on 'my other event', (data) ->
-    console.log data
-
-  setTimeout( ->
-    fileName = "./mp3/Between The Buried And Me/Alaska/Medicine Wheel.mp3"
+  socket.on 'newSong', ->
+    fileName = songFiles[Math.floor(Math.random() * songFiles.length)]
     readStream = fs.createReadStream fileName, { 'flags' : 'r', 'encoding': 'binary', 'bufferSize' : 1024*4 }
     readStream.on 'data', (data) ->
-      socket.emit 'data', data
-  , 1000)
+      socket.emit 'data', { fileName: fileName },  data
+
+songFiles = []
+loadFiles = ->
+  finder = findit.find('./mp3')
+  finder.on 'file', (file) ->
+    if file.substr(-4) is '.mp3'
+      songFiles.push file
+
+loadFiles()
 
 handler = (req, res) ->
   filePath = '.' + req.url

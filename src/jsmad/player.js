@@ -7,7 +7,7 @@ Mad.Player = function (stream) {
 
     // default onProgress handler
     this.onProgress = function (playtime, total, preloaded) {
-        console.log("playtime = " + playtime + " / " + total + ", preloaded = " + preloaded);
+   //     console.log("playtime = " + playtime + " / " + total + ", preloaded = " + preloaded);
     }
 };
 
