@@ -21,6 +21,7 @@ t = time()
 User = {
 #  authToken: -1
   stations: []
+  currentPlaylist: []
 #  currentPlaylist: {}
 #  currentStation: -1
 }
@@ -62,20 +63,22 @@ pandora.addListener 'stations', (data) ->
 #    , 180000)
 
 pandora.addListener 'playlist', (data) ->
-  User.currentPlaylist = []
   debug.info 'Playlist'
   for song in data
+    debug.info "\t #{song.songTitle} - #{song.artistSummary}"
     User.currentPlaylist.push(song)
-  pandora.getSong(User.currentPlaylist.pop())
+  getNextSong()
 
 getNextSong = () ->
-  console.log 'Getting next song'
-  if !User.currentPlaylist? or User.currentPlaylist.length is 0
+  if !User.currentPlaylist? or User.currentPlaylist.length <= 1
     if !User.currentStation?
       return
+    console.log('Out of items in the playlist, getting a new one')
     pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
    else
      song = User.currentPlaylist.pop()
+     User.currentSong = song
+     console.log 'getting ' + User.currentSong.songTitle
      pandora.getSong(song)
 
 pandora.addListener 'song!!', (song, chunk) ->
@@ -127,7 +130,6 @@ getCredentials = (cb) ->
   else
     cb null
 
-
 app = require('http').createServer((req, res) ->
   handler(req, res)
 )
@@ -139,12 +141,15 @@ app.listen 1337
 io.sockets.on 'connection', (socket) ->
   clients[socket.id] = socket
   getCredentials(pandora.sync)
+  User.currentSong = null
 
   socket.on 'disconnect', ->
     delete clients[socket.id]
   
   pandora.addListener 'song', (song, chunk) ->
-    socket.emit 'data', song, chunk
+    if User.currentSong is null or User.currentSong is song
+      User.currentSong = song
+      socket.emit 'data', song, chunk
 
   socket.on 'newSong', ->
     getNextSong()

@@ -28,13 +28,14 @@
 	(function(){
 window.onload	= function(){
 
-	var player, stream, socket;
+	var player = null, stream = null, socket;
     socket = io.connect('http://localhost:1337');
     socket.emit('newSong');
     window.nextSong = function() {
         player.setPlaying(false);
-		stream = undefined;	
-		player = undefined;
+        player.destroy();
+		stream = null;	
+		player = null;
 		socket.emit('newSong');
 	};
 	
@@ -54,7 +55,7 @@ window.onload	= function(){
 }
 
 	socket.on('data', function (song, data) {
-  	  if (stream !== undefined) {
+  	  if (stream != null) {
   	  	stream.buffer(data);
   	  } else {
   	    console.log(song);
@@ -64,8 +65,9 @@ window.onload	= function(){
   	    $("#id3_song_title").text(song.songTitle);
   	  }  
   	  
-	  if (player === undefined) {
+	  if (player == null) {
 		  player = new Mad.Player(stream);
+		  player.createDevice();  
 		  player.onPlay = function() {
 			  console.log('Update play UI');
 		  }
@@ -77,10 +79,10 @@ window.onload	= function(){
 				   nextSong();
 			   }
 		  }
+		  
 		  player.onPause = function() {
 			  console.log('update pause UI');
 		  }
-		  player.createDevice();  	  
 		  player.setPlaying(true);
   	  }
     });
