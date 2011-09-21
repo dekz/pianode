@@ -79,6 +79,7 @@ secondsToHms = (d) ->
     h = Math.floor(d / 3600)
     m = Math.floor(d % 3600 / 60)
     s = Math.floor(d % 3600 % 60)
-    return ((h > 0 ? h + ":" : "") + (m > 0 ? (h > 0 && m < 10 ? "0" : "") + m + ":" : "0:") + (s < 10 ? "0" : "") + s)
+    out = ((if h > 0 then h + ':' else '') + (if m > 0 then (if h > 0 and m < 10 then '0' else '') + m + ':' else '0:') + (if s < 10 then '0' else '') + s)
+
 
 load()
