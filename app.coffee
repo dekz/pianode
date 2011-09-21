@@ -67,9 +67,8 @@ pandora.addListener 'playlist', (data) ->
   for song in data
     debug.info "\t #{song.songTitle} - #{song.artistSummary}"
     User.currentPlaylist.push(song)
-  getNextSong()
 
-getNextSong = () ->
+getNextSong = (cb) ->
   if !User.currentPlaylist? or User.currentPlaylist.length <= 1
     if !User.currentStation?
       return
@@ -80,6 +79,8 @@ getNextSong = () ->
      User.currentSong = song
      console.log 'getting ' + User.currentSong.songTitle
      pandora.getSong(song)
+     if cb?
+       cb(song)
 
 pandora.addListener 'song!!', (song, chunk) ->
   if !song.writeStream?
@@ -130,18 +131,22 @@ getCredentials = (cb) ->
   else
     cb null
 
-app = require('http').createServer((req, res) ->
+app = require('http').createServer (req, res) ->
   handler(req, res)
-)
+
 io = require('socket.io')
 io = io.listen(app)
 io.set 'log level', 1
 app.listen 1337
 
 io.sockets.on 'connection', (socket) ->
+
   clients[socket.id] = socket
   getCredentials(pandora.sync)
   User.currentSong = null
+  
+  getNextSong (song) ->
+    socket.emit 'pandora_newSong', song
 
   socket.on 'disconnect', ->
     delete clients[socket.id]
@@ -152,11 +157,8 @@ io.sockets.on 'connection', (socket) ->
       socket.emit 'data', song, chunk
 
   socket.on 'newSong', ->
-    getNextSong()
-#    fileName = songFiles[Math.floor(Math.random() * songFiles.length)]
-#    readStream = fs.createReadStream fileName, { 'flags' : 'r', 'encoding': 'binary', 'bufferSize' : 1024*4 }
-#    readStream.on 'data', (data) ->
-#      socket.emit 'data', { fileName: fileName },  data
+    getNextSong (song) ->
+      socket.emit 'pandora_newSong', song
 
 songFiles = []
 

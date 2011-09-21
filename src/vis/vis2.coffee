@@ -6,7 +6,6 @@ frameBufferSize = 4096
 bufferSize = frameBufferSize/4
 fft = new FFT(bufferSize, 44100)
 albumArt = new Image()
-albumArt.src = $("#album_art").attr('src')
 
 histoindex = 0
 histomax = 500
@@ -27,6 +26,7 @@ signal = new Float32Array(bufferSize)
 peak = new Float32Array(bufferSize)
 
 class Visualisation
+
 	constructor: (canvas) ->
 		@canvas = canvas
 		@ctx = canvas.getContext('2d')
@@ -52,12 +52,13 @@ class Visualisation
 				if maxvalue[i] > 10
 					maxvalue[i] -= 5
 	
-	visualizer: =>
+	visualizer: (song) =>
 		@ctx.clearRect(0,0, @canvas.width, @canvas.height)
-		albumArt.src = $("#album_art").attr('src')
+		if song?.artRadio?
+			albumArt.src = song.artRadio
+			@ctx.globalAlpha = 0.5
+			@ctx.drawImage(albumArt, (@canvas.width/2)-(130/2), (@canvas.height/2)-(130/2))
 
-		@ctx.globalAlpha = 0.5
-		@ctx.drawImage(albumArt, @canvas.height/2, @canvas.width/2)
 		@ctx.globalAlpha = 1
 		for h in [0..histomax]
 			if histobuffer_t[h] > 0
@@ -71,8 +72,6 @@ class Visualisation
 				histobuffer_t[h] = histobuffer_t[h] - 1
 				histobuffer_y[h] = histobuffer_y[h] - 3 + Math.random() * 6
 				histobuffer_x[h] = histobuffer_x[h] - 3 + Math.random() * 6
-		t = setTimeout(@visualizer,50)
-
 		
 new_pos = (x,y) ->
 	x = Math.floor(x)

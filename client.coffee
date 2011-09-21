@@ -6,63 +6,73 @@ vis = null
 
 load = ->
   playing_time = $("#playing_time")
+  $("#toggle_play_button").click(pause)
   $("#nextSong").click(nextSong)
   canvas = $("#fft")[0]
   socket = io.connect('http://localhost:1337')
-
+  socket.emit('test');
   socket.emit('newSong');
 
   buffer = ''
+  visTimer = null
 
+  socket.on 'pandora_newSong', (song) ->
+    console.log song
+
+  
   socket.on 'data', (song, data) ->
-    if !vis?
-      vis = new Visualisation(canvas)
-      vis.visualizer()
+    if stream?
+      stream.buffer data
+    else
+      if buffer.length+data.length >= 512
+        stream = new Mad.StringStream(buffer+data)
+        # TODO remove this options setting of nothing
+        stream.options = {}
+        buffer = ''
 
-    if !currentSong?
-      currentSong = song
+        $("#id3_artist_name").text(song.artistSummary)
+        $("#id3_song_title").text(song.songTitle)
+
+        if !currentSong?
+          currentSong = song
+
+        if !vis?
+          vis = new Visualisation(canvas)
+          vis.visualizer(song)
     
-    if song.songTitle is currentSong.songTitle
-      if stream?
-        stream.buffer data
-      else
-        if buffer.length+data.length >= 2048
-          stream = new Mad.StringStream(buffer+data)
-          buffer = ''
-          $("#album_art").attr("src", song.artRadio)
-          $("#id3_artist_name").text(song.artistSummary)
-          $("#id3_song_title").text(song.songTitle)
+        if !visTimer?
+          visTimer = setInterval ->
+             vis.visualizer(song)
+          , 50
 
-          if !player?
-            player = new Mad.Player(stream)
-            player.createDevice ->
-              oldAudioProcess = player.dev._node.onaudioprocess
-              newAudioProcess = (e) ->
-                oldAudioProcess(e)
-                vis.audioAvailable(e)
-              player.dev._node.onaudioprocess = newAudioProcess
-
-            player.onPlay = () ->
-              $("#toggle_play_button").text("Pause")
-            
-            player.onPause = () ->
-              $("#toggle_play_button").text("Play")
-
-            player.setPlaying(true)
-
-            player.onProgress = (playtime, total, preloaded) ->
-              playing_time.text(secondsToHms(playtime))
-              if total is playtime and playtime isnt 0
-                nextSong()
-
+        if !player?
+          player = new Mad.Player(stream)
+          # Create a new Audio device and change the event to 
+          # also call the visualizer
+          player.createDevice ->
             oldAudioProcess = player.dev._node.onaudioprocess
             newAudioProcess = (e) ->
               oldAudioProcess(e)
               vis.audioAvailable(e)
             player.dev._node.onaudioprocess = newAudioProcess
-            
-        else
-          buffer += data
+
+          player.onPlay = () ->
+            $("#toggle_play_button").text("Pause")
+          
+          player.onPause = () ->
+            $("#toggle_play_button").text("Play")
+
+          player.setPlaying(true)
+
+          player.onProgress = (playtime, total, preloaded) ->
+            playing_time.text(secondsToHms(playtime))
+            delta = playtime
+            if total is playtime and playtime isnt 0
+              nextSong()
+      else
+        buffer += data
+  
+  
 
 nextSong = ->
   if player?
@@ -71,12 +81,14 @@ nextSong = ->
     player = null
     currentSong = null
     stream = null
-    socket.emit('newSong')
+  clearInterval(visTimer)
+  visTimer = null
+  socket.emit('newSong')
 
 pause = ->
   if player?
     player.setPlaying(!player.playing)
-    $("#toggle_play_button").text(player.playing ? "Pause" : "Play")
+    $("#toggle_play_button").text(if player.playing then "Pause" else "Play")
 
 secondsToHms = (d) ->
     d = Number(d)
