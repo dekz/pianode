@@ -1,0 +1,51 @@
+<html>
+<head>
+  <link href="/style.css" rel="stylesheet" type="text/css">
+  
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/jquery.js"></script>
+  
+  <script src="/dsp.js"></script>
+
+  <script src="/jsmad/mad.js"></script>
+
+  <script src="/jsmad/rq_table.js"></script>
+  <script src="/jsmad/imdct_s.js"></script>
+  <script src="/jsmad/huffman.js"></script>
+  <script src="/jsmad/bit.js"></script>
+  <script src="/jsmad/stream.js"></script>
+  <script src="/jsmad/layer3.js"></script>
+  <script src="/jsmad/frame.js"></script>
+  <script src="/jsmad/synth.js"></script>
+
+  <script src="/jsmad/bytestream.js"></script>
+  <script src="/jsmad/filestream.js"></script>
+  <script src="/jsmad/substream.js"></script>
+  <script src="/jsmad/id3v22stream.js"></script>
+  <script src="/jsmad/id3v23stream.js"></script>
+  <script src="/jsmad/mp3file.js"></script>
+  <script src="/jsmad/stringstream.js"></script>
+
+  <script src="/jsmad/player.js"></script>
+
+  <script src="/browserify.js"></script>
+
+  <body>
+    <div id="content">
+      <canvas name="fft" id="fft" width='300' height='300'></canvas>
+      
+      <div id="id3">
+        <div id="id3_artist_name"></div>
+        <div id="id3_song_title"></div>
+      </div>
+      
+      <div id="controls">
+        <div id="playing_time"></div>
+        <button id='nextSong'>Next</button>
+        <button id="toggle_play_button" onclick="pause()">Pause</button>
+      </div>
+      
+    </div>
+  </body>
+  
+</html>

@@ -1,5 +1,5 @@
-fs = require('fs')
-path = require('path')
+fs = require 'fs'
+path = require 'path'
 
 mkdirsP = (p, mode, f) ->
   paths = path.normalize(p).split('/')
@@ -39,6 +39,11 @@ findZero = (data, start, end) ->
     i++
   return i
 
-common = { mkdirsP: mkdirsP, isBitSet: isBitSet, getInt24: getInt24,
-getTextEncoding: getTextEncoding, findZero: findZero }
+common =
+  mkdirsP: mkdirsP
+  isBitSet: isBitSet
+  getInt24: getInt24
+  getTextEncoding: getTextEncoding
+  findZero: findZero
+
 module.exports = common

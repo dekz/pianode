@@ -3,3 +3,5 @@ info.coffee
 mp3
 *.mp3
 test
+
+/.DS_Store

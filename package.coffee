@@ -1,7 +1,7 @@
 name: 'pianode'
 description: 'Pandora client'
 keywords: ['pianode', 'pandora', 'mp3', 'music']
-version: require('fs').readFileSyc('./VERSION')
+version: require('fs').readFileSync('./VERSION', 'utf8')
 
 author: 'dekz <dekz@dekz.net>'
 

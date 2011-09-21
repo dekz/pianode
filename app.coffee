@@ -1,97 +1,97 @@
-# Pandora req
-info = require('./info.coffee')
-pandora = require('./src/pandora.coffee')
-Tag = require('taglib').Tag
-# other req
-prompt = require('prompt')
-colors = require('colors')
-path = require('path')
-fs = require('fs')
-findit = require('findit')
+# node
+fs = require 'fs'
+http = require 'http'
+path = require 'path'
+
+# support
+info = require './src/info.coffee'
+pandora = require './src/pandora.coffee'
+
+# npm
+colors = require 'colors'
+findit = require 'findit'
+prompt = require 'prompt'
+socket_io = require 'socket.io'
+{Tag} = require 'taglib'
 
 prompt.message = '> '
 prompt.delimiter = ''
 prompt.start()
+
 clients = {}
 
-time = ->
-  return (new Date().getTime() + '').substr(0,10)
+time = -> Date().now().toString().substring 0, 10
 t = time()
 
-User = {
-#  authToken: -1
+User =
+  # authToken: -1
   stations: []
   currentPlaylist: []
-#  currentPlaylist: {}
-#  currentStation: -1
-}
+  # currentPlaylist: {}
+  # currentStation: -1
 
-pandora.proxy = { proxy: info.proxy, proxy_host: info.proxy_host, proxy_port: info.proxy_port }
+pandora.proxy = proxy: info.proxy, proxy_host: info.proxy_host, proxy_port: info.proxy_port
 
-debug = {
-  log: (msg) ->
-    console.log 'DEBUG: '.grey + msg
-  info: (msg) ->
-    console.log 'INFO: '.blue + msg
-}
+debug =
+  log: (msg) -> console.log 'DEBUG: '.grey + msg
+  info: (msg) -> console.log 'INFO: '.blue + msg
 
 completedSongs = 0
 
 pandora.addListener 'sync', (data) ->
   debug.info 'Syncing with pandora. Using proxy? ' + pandora.proxy.proxy
-  pandora.authUser(t, info.username, info.password)
+  pandora.authUser t, info.username, info.password
 
 pandora.addListener 'auth', (data) ->
   debug.info 'Authed. getting Station list'
   User.authToken = data
-  pandora.getStations(t, User.authToken)
+  pandora.getStations t, User.authToken
 
 pandora.addListener 'stations', (data) ->
   User.stations = data
-
+  
   console.log 'Stations:'
-  for stationIndex in [0..(data.length-1)]
+  for stationIndex in [0..data.length - 1]
     console.log "\t #{stationIndex} - #{data[stationIndex]?.name}"
-
+  
   prompt.get 'station', (err, result) ->
     User.currentStation = data[result.station]
-    pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
-#    setInterval((id) ->
-#      debug.info "Downloaded #{completedSongs} songs"
-#      debug.log 'Getting playlist for ' + User.currentStation.name
-#      pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
-#    , 180000)
+    pandora.getPlaylist t, User.authToken, User.currentStation.id, info.audio_format
+    
+    # setInterval (id) ->
+    #   debug.info "Downloaded #{completedSongs} songs"
+    #   debug.log 'Getting playlist for ' + User.currentStation.name
+    #   pandora.getPlaylist t, User.authToken, User.currentStation.id, info.audio_format
+    # , 180 * 1000
 
 pandora.addListener 'playlist', (data) ->
   debug.info 'Playlist'
+  
   for song in data
     debug.info "\t #{song.songTitle} - #{song.artistSummary}"
-    User.currentPlaylist.push(song)
+    User.currentPlaylist.push song
 
 getNextSong = (cb) ->
   if !User.currentPlaylist? or User.currentPlaylist.length <= 1
-    if !User.currentStation?
-      return
-    console.log('Out of items in the playlist, getting a new one')
-    pandora.getPlaylist(t, User.authToken, User.currentStation.id, info.audio_format)
-   else
-     song = User.currentPlaylist.pop()
-     User.currentSong = song
-     console.log 'getting ' + User.currentSong.songTitle
-     pandora.getSong(song)
-     if cb?
-       cb(song)
+    return unless User.currentStation?
+    console.log 'Out of items in the playlist, getting a new one'
+    pandora.getPlaylist t, User.authToken, User.currentStation.id, info.audio_format
+  else
+    [song] = User.currentPlaylist
+    User.currentSong = song
+    console.log "getting #{User.currentSong.songTitle}"
+    pandora.getSong song
+    cb? song
 
 pandora.addListener 'song!!', (song, chunk) ->
-  if !song.writeStream?
+  unless song.writeStream?
     createSongFile song, info.download_dir, (fileName) ->
-      song.writeStream = fs.createWriteStream(fileName + song.fileName, {flags: 'w', encoding: 'binary' }
+      song.writeStream = fs.createWriteStream "#{fileName}#{song.fileName}", flags: 'w', encoding: 'binary'
       # should write tag here if possible
       song.writeStream chunk, 'binary'
   else
       # Write the chunk given
       song.writeStream chunk, 'binary'
-
 
   if song.fileState is 'complete'
     # file is fully completed
@@ -106,7 +106,7 @@ pandora.addListener 'song!!', (song, chunk) ->
     tag.save()
 
     debug.log "#{JSON.stringify tag}".blue
-    debug.log "#{song.songTitle} downloaded to #{song.dir} "
+    debug.log "#{song.songTitle} downloaded to #{song.dir}"
 
 pandora.addListener 'err', (str, data) ->
   console.log "ERR: ".red
@@ -114,40 +114,41 @@ pandora.addListener 'err', (str, data) ->
 
 createSongFile = (song, dir, cb) ->
    localDir = "#{dir}/#{song.artistSummary}/#{song.albumTitle}/"
-   if !song.fileName?
+   
+   unless song.fileName?
      song.dir = localDir
      song.fileName = "#{song.songTitle}.mp3"
-   common.mkdirsP localDir, '0777', (fileName) ->
-     cb fileName
+    
+   common.mkdirsP localDir, '0777', cb
 
 getCredentials = (cb) ->
-  if !info.username?
+  unless info.username?
     prompt.get 'username', (err, result) ->
       info.username = result.username
-  if !info.password?
-    prompt.get {name: 'password', hidden: true}, (err, result) ->
+  
+  unless info.password?
+    prompt.get name: 'password', hidden: true, (err, result) ->
       info.password = result.password
       cb null
-  else
-    cb null
+  
+  else cb null
 
-app = require('http').createServer (req, res) ->
-  handler(req, res)
-
-io = require('socket.io')
-io = io.listen(app)
-io.set 'log level', 1
+app = connect()
+app.use connect.static "#{__dirname}/client/public"
+app.use browserify entry: "#{__dirname}/client/entry.coffee", watch: on
 app.listen 1337
 
-io.sockets.on 'connection', (socket) ->
+io = socket_io.listen app
+io.set 'log level', 1
 
+io.sockets.on 'connection', (socket) ->
   clients[socket.id] = socket
-  getCredentials(pandora.sync)
+  getCredentials pandora.sync
   User.currentSong = null
   
   getNextSong (song) ->
     socket.emit 'pandora_newSong', song
-
+  
   socket.on 'disconnect', ->
     delete clients[socket.id]
   
@@ -155,31 +156,13 @@ io.sockets.on 'connection', (socket) ->
     if User.currentSong is null or User.currentSong is song
       User.currentSong = song
       socket.emit 'data', song, chunk
-
+  
   socket.on 'newSong', ->
     getNextSong (song) ->
       socket.emit 'pandora_newSong', song
 
+# load songs
 songFiles = []
-
-loadFiles = ->
-  finder = findit.find('./mp3')
-  finder.on 'file', (file) ->
-    if file.substr(-4) is '.mp3'
-      songFiles.push file
-
-loadFiles()
-
-handler = (req, res) ->
-  filePath = '.' + req.url
-  if filePath is './'
-    filePath = './client.html'
-  path.exists filePath, (exists) ->
-    if exists
-      fs.readFile filePath, (err, data) ->
-        if err
-          res.writeHead 500
-          res.end 'Error loading ' + filePath
-        else
-          res.writeHead 200, { 'Content-Type': 'text/html' }
-          res.end data, 'utf8'
+finder = findit.find './mp3'
+finder.on 'file', (file) ->
+  songFiles.push file if file.substr -4 is '.mp3'
