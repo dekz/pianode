@@ -36,7 +36,8 @@ Mad.StringStream.prototype.get = function(offset, length) {
     if (this.absoluteAvailable(offset + length)) {
         return this.state['buffer'].slice(offset, offset + length);
     } else {
-        throw 'TODO: THROW GET ERROR!';
+		return null;
+        console.log('Need to buffer');
     }
 }
 
