@@ -1,0 +1,8 @@
+## TODO
+Creating id3 tags without writing to a file (patch taglib)
+Clean up client.html
+Cliean up app.coffee keeping one session per socket or a global session, not half of each 
+Use audiolib FFT not dsp.js
+Events on songs not on 'song'
+Fix client.html on song end
+Buffer properly in jsmad

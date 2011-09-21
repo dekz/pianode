@@ -4,7 +4,7 @@
 
 <script src="/src/vis/dsp.js"></script>
 <script type="text/coffeescript" src="/src/vis/vis2.coffee"></script>
-
+<script type="text/coffeescript" src="/client.coffee"></script>
 
 <script src="/node_modules/audiolib/lib/audiolib.min.js"></script>
 
@@ -29,102 +29,7 @@
 
 <script src="/src/jsmad/player.js"></script>
 
-
-
-<script>
-	(function(){
-window.onload	= function(){
-
-    var canvas = $("#fft")[0];
-    
-	var player = null, stream = null, currentSong = null,socket;
-    socket = io.connect('http://localhost:1337');
-    socket.emit('newSong');
-    window.nextSong = function() {
-        player.setPlaying(false);
-		stream = null;	
-		player.reinitDevice()
-		player = null;
-		socket.emit('newSong');
-		currentSong = null;
-	};
-	
-	window.pause = function() {
-		if (player !== undefined) {
-			player.setPlaying(!player.playing);
-			$("#toggle_play_button").text(player.playing ? "Pause" : "Play");
-		}
-	}
-	
-	function secondsToHms(d) {
-		d = Number(d);
-		var h = Math.floor(d / 3600);
-		var m = Math.floor(d % 3600 / 60);
-		var s = Math.floor(d % 3600 % 60);
-		return ((h > 0 ? h + ":" : "") + (m > 0 ? (h > 0 && m < 10 ? "0" : "") + m + ":" : "0:") + (s < 10 ? "0" : "") + s); 
-}
-
-	socket.on('data', function (song, data) {
-	  if (currentSong == null) {
-		  currentSong = song;
-	  }
-	  
-	  var buffer = "", osc, osc2, lpf;
-
-	  
-	  if (song.songTitle === currentSong.songTitle) {
-		  if (stream != null) {
-	  	  	stream.buffer(data);
-	  	  } else {
-	  	  	if (buffer.length+data.length >= 1024) {
-				stream = new Mad.StringStream(data);
-		  	    $("#album_art").attr("src", song.artRadio);
-		  	    $("#id3_artist_name").text(song.artistSummary);
-		  	    $("#id3_song_title").text(song.songTitle);
-		  	    buffer = "";
-		  	    if (player == null) {
-					  player = new Mad.Player(stream);
-					  player.createDevice();  
-					  player.onPlay = function() {
-						  console.log('Update play UI');
-					  }
-					  
-					  player.onProgress = function(playtime, total, preloaded) {
-					  	$("#playing_time").text(secondsToHms(playtime));
-						   if (total == playtime && playtime != 0) {
-							   console.log('Getting new song');
-							   nextSong();
-						   }
-					  }
-					  
-					  var vis = new Visualisation(canvas);
-
-					  
-					  player.onPause = function() {
-						  console.log('update pause UI');
-					  }
-					  
-					  player.setPlaying(true);
-					  var old = player.dev._node.onaudioprocess
-					  var newAudioProcess = function (e) {
-					  	old(e);	
-						vis.audioAvailable(e);
-					  };
-					  player.dev._node.onaudioprocess = newAudioProcess
-					  vis.visualizer()
-			  	  }
-			  	  
-	  	  	} else {
-	  	  		console.log("buffering");
-		  	  	buffer += data;
-	  	  	}
-	  	  }  
-	  }
-    });
-};
-}());
-</script>
-	<body>
+<body>
 	<div id="content">
 		<canvas name="fft" id="fft" width='300' height='300'></canvas>
 		<img id="album_art" src="" />
@@ -138,4 +43,4 @@ window.onload	= function(){
 			<button id="toggle_play_button" onclick="pause()">Pause</button>
 		</div>
 	</div>
-	</body>
+</body>
