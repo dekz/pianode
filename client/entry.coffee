@@ -6,28 +6,46 @@ currentSong = null
 socket = null
 vis = null
 
+nextSong = ->
+  if player?
+    player.setPlaying false
+    player.destroy()
+    player = null
+    currentSong = null
+    stream = null
+
+  clearInterval visTimer
+  visTimer = null
+
+  socket.emit 'newSong'
+
+pause = ->
+  if player?
+    player.setPlaying (not player.playing)
+    $("#toggle_play_button").text if player.playing then 'Pause' else 'Play'
+
 load = ->
-  playing_time = $ '#playing_time'
-  ($ '#toggle_play_button').click pause
-  ($ '#nextSong').click nextSong
-  
-  [canvas] = $ '#fft'
+  playing_time = $('#playing_time')
+  $('#toggle_play_button').click(pause)
+  $('#nextSong').click(nextSong)
+  canvas = $('#fft')
+
   socket = io.connect 'http://localhost:1337'
-  socket.emit 'test'
   socket.emit 'newSong'
 
   buffer = ''
   visTimer = null
-
-  socket.on 'pandora_newSong', (song) -> console.log song
+  console.log canvas
+  socket.on 'pandora_newSong', (song) -> 
+    console.log song
   
   socket.on 'data', (song, data) ->
     if stream? then stream.buffer data
     else
-      if buffer.length + data.length >= 512
+      if (buffer.length + data.length) >= (50*1024)
         stream = new Mad.StringStream buffer + data
         # TODO remove this options setting of nothing
-        stream.options = {}
+        #stream.options = {}
         buffer = ''
         
         ($ '#id3_artist_name').text song.artistSummary
@@ -35,12 +53,12 @@ load = ->
         
         unless currentSong? then currentSong = song
         
-        unless vis?
-          vis = new Visualisation canvas
-          vis.visualizer song
+        #unless vis? and canvas?
+        #  vis = new Visualisation canvas
+        #  vis.visualizer song
         
-        unless visTimer?
-          visTimer = setInterval (-> vis.visualizer song), 50
+        #unless visTimer? and canvas?
+        #  visTimer = setInterval (-> vis.visualizer song), 50
 
         unless player?
           player = new Mad.Player stream
@@ -52,7 +70,8 @@ load = ->
             
             newAudioProcess = (e) ->
               oldAudioProcess e
-              vis.audioAvailable e
+              if vis?
+                vis.audioAvailable e
             
             player.dev._node.onaudioprocess = newAudioProcess
 
@@ -70,25 +89,8 @@ load = ->
             if total is playtime and playtime isnt 0
               nextSong()
       else
+        console.log 'buffering'
         buffer += data
-
-nextSong = ->
-  if player?
-    player.setPlaying false
-    player.destroy()
-    player = null
-    currentSong = null
-    stream = null
-  
-  clearInterval visTimer
-  visTimer = null
-  
-  socket.emit 'newSong'
-
-pause = ->
-  if player?
-    player.setPlaying (not player.playing)
-    ($ '#toggle_play_button').text if player.playing then 'Pause' else 'Play'
 
 secondsToHms = (d) ->
     d = Number d
@@ -99,3 +101,6 @@ secondsToHms = (d) ->
     out = ((if h > 0 then h + ':' else '') + (if m > 0 then (if h > 0 and m < 10 then '0' else '') + m + ':' else '0:') + (if s < 10 then '0' else '') + s)
 
 load()
+root = exports ? this
+window.pause = pause
+window.nextSong = nextSong

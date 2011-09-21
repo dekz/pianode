@@ -4,6 +4,7 @@
   
   <script src="/socket.io/socket.io.js"></script>
   <script src="/jquery.js"></script>
+  <script src="/audiolib.js"></script>
   
   <script src="/dsp.js"></script>
 
@@ -41,7 +42,7 @@
       
       <div id="controls">
         <div id="playing_time"></div>
-        <button id='nextSong'>Next</button>
+        <button id='nextSong' onclick="nextSong()">Next</button>
         <button id="toggle_play_button" onclick="pause()">Pause</button>
       </div>
       

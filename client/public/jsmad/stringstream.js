@@ -28,7 +28,7 @@ Mad.StringStream.prototype.peek = function(n) {
         
         return result;
     } else {
-        throw 'TODO: THROW PEEK ERROR!';
+        throw new Error('Buffer underflow with peek!');
     }
 }
 
@@ -36,8 +36,8 @@ Mad.StringStream.prototype.get = function(offset, length) {
     if (this.absoluteAvailable(offset + length)) {
         return this.state['buffer'].slice(offset, offset + length);
     } else {
-		return null;
         console.log('Need to buffer');
+		return '';
     }
 }
 

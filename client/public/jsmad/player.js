@@ -50,16 +50,16 @@ Mad.Player.prototype.createDevice = function(cb) {
 		var index = 0;
 
 		if (!self.mpeg.stream.parentStream.absoluteAvailable(1024)) return;
-
+		
 		while (index < sampleBuffer.length) {
 			for (var i = 0; i < self.channelCount; ++i) {
 				sampleBuffer[index++] = synth.pcm.samples[i][self.offset];
 			}
 
 			self.offset++;
-
 			if (self.offset >= synth.pcm.samples[0].length) {
 				self.offset = 0;
+
 				self.frame = Mad.Frame.decode(self.frame, self.mpeg);
 				if (self.frame == null) {
 					if (self.stream.error == Mad.Error.BUFLEN) {
@@ -68,9 +68,9 @@ Mad.Player.prototype.createDevice = function(cb) {
 						self.dev.kill();
 					}
 					console.log("Error! code = " + self.mpeg.error);
+					console.log(self.frame);
+					console.log(self.mpeg);
 					self.playing = false;
-
-
 				} else {
 					if (!self.playing) {
 						self.playing = true;

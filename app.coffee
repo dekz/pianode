@@ -4,7 +4,7 @@ http = require 'http'
 path = require 'path'
 
 # support
-info = require './src/info.coffee'
+info = require './info.coffee'
 pandora = require './src/pandora.coffee'
 
 # npm
@@ -14,13 +14,16 @@ prompt = require 'prompt'
 socket_io = require 'socket.io'
 {Tag} = require 'taglib'
 
+connect = require 'connect'
+browserify = require 'browserify'
+
 prompt.message = '> '
 prompt.delimiter = ''
 prompt.start()
 
 clients = {}
 
-time = -> Date().now().toString().substring 0, 10
+time = -> (new Date().getTime() + '').substr 0,10
 t = time()
 
 User =

@@ -354,7 +354,10 @@ Mad.Frame = function () {
 };
 
 Mad.Frame.decode = function(frame, stream) {
-    frame.options = stream.options;
+    if (stream.options != null) {
+        frame.options = stream.options;    
+    }
+    
     
     /* header() */
     /* error_check() */
