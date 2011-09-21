@@ -6,6 +6,7 @@ vis = null
 
 load = ->
   playing_time = $("#playing_time")
+  $("#nextSong").click(nextSong)
   canvas = $("#fft")[0]
   socket = io.connect('http://localhost:1337')
 
@@ -14,15 +15,15 @@ load = ->
   buffer = ''
 
   socket.on 'data', (song, data) ->
-    if vis is null
+    if !vis?
       vis = new Visualisation(canvas)
       vis.visualizer()
 
-    if currentSong is null
+    if !currentSong?
       currentSong = song
     
     if song.songTitle is currentSong.songTitle
-      if stream isnt null
+      if stream?
         stream.buffer data
       else
         if buffer.length+data.length >= 1024
@@ -32,7 +33,7 @@ load = ->
           $("#id3_artist_name").text(song.artistSummary)
           $("#id3_song_title").text(song.songTitle)
 
-          if player is null
+          if !player?
             player = new Mad.Player(stream)
             player.createDevice()
 
@@ -60,7 +61,7 @@ load = ->
           buffer += data
 
 nextSong = ->
-  if player isnt null
+  if player?
     player.setPlaying(false)
     player.destroy()
     player = null
@@ -69,7 +70,7 @@ nextSong = ->
     socket.emit('newSong')
 
 pause = ->
-  if player isnt null
+  if player?
     player.setPlaying(!player.playing)
     $("#toggle_play_button").text(player.playing ? "Pause" : "Play")
 
