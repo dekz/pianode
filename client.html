@@ -1,6 +1,12 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/public/jquery-1.6.4/jquery-1.6.4.min.js"></script>
-<script src="/node_modules/audiolib/lib/audiolib.js"></script>
+<script src="/public/coffee-script/coffee-script.js"></script>
+
+<script src="/src/vis/dsp.js"></script>
+<script type="text/coffeescript" src="/src/vis/vis2.coffee"></script>
+
+
+<script src="/node_modules/audiolib/lib/audiolib.min.js"></script>
 
 <script src="/src/jsmad/mad.js"></script>
 
@@ -24,19 +30,23 @@
 <script src="/src/jsmad/player.js"></script>
 
 
+
 <script>
 	(function(){
 window.onload	= function(){
 
-	var player = null, stream = null, socket;
+    var canvas = $("#fft")[0];
+    
+	var player = null, stream = null, currentSong = null,socket;
     socket = io.connect('http://localhost:1337');
     socket.emit('newSong');
     window.nextSong = function() {
         player.setPlaying(false);
-        player.destroy();
 		stream = null;	
+		player.reinitDevice()
 		player = null;
 		socket.emit('newSong');
+		currentSong = null;
 	};
 	
 	window.pause = function() {
@@ -55,42 +65,68 @@ window.onload	= function(){
 }
 
 	socket.on('data', function (song, data) {
-  	  if (stream != null) {
-  	  	stream.buffer(data);
-  	  } else {
-  	    console.log(song);
-  	    stream = new Mad.StringStream(data);
-  	    $("#album_art").attr("src", song.artRadio);
-  	    $("#id3_artist_name").text(song.artistSummary);
-  	    $("#id3_song_title").text(song.songTitle);
-  	  }  
-  	  
-	  if (player == null) {
-		  player = new Mad.Player(stream);
-		  player.createDevice();  
-		  player.onPlay = function() {
-			  console.log('Update play UI');
-		  }
-		  
-		  player.onProgress = function(playtime, total, preloaded) {
-		  	$("#playing_time").text(secondsToHms(playtime));
-			   if (total == playtime) {
-				   console.log('Getting new song');
-				   nextSong();
-			   }
-		  }
-		  
-		  player.onPause = function() {
-			  console.log('update pause UI');
-		  }
-		  player.setPlaying(true);
-  	  }
+	  if (currentSong == null) {
+		  currentSong = song;
+	  }
+	  
+	  var buffer = "", osc, osc2, lpf;
+
+	  
+	  if (song.songTitle === currentSong.songTitle) {
+		  if (stream != null) {
+	  	  	stream.buffer(data);
+	  	  } else {
+	  	  	if (buffer.length+data.length >= 1024) {
+				stream = new Mad.StringStream(data);
+		  	    $("#album_art").attr("src", song.artRadio);
+		  	    $("#id3_artist_name").text(song.artistSummary);
+		  	    $("#id3_song_title").text(song.songTitle);
+		  	    buffer = "";
+		  	    if (player == null) {
+					  player = new Mad.Player(stream);
+					  player.createDevice();  
+					  player.onPlay = function() {
+						  console.log('Update play UI');
+					  }
+					  
+					  player.onProgress = function(playtime, total, preloaded) {
+					  	$("#playing_time").text(secondsToHms(playtime));
+						   if (total == playtime && playtime != 0) {
+							   console.log('Getting new song');
+							   nextSong();
+						   }
+					  }
+					  
+					  var vis = new Visualisation(canvas);
+
+					  
+					  player.onPause = function() {
+						  console.log('update pause UI');
+					  }
+					  
+					  player.setPlaying(true);
+					  var old = player.dev._node.onaudioprocess
+					  var newAudioProcess = function (e) {
+					  	old(e);	
+						vis.audioAvailable(e);
+					  };
+					  player.dev._node.onaudioprocess = newAudioProcess
+					  vis.visualizer()
+			  	  }
+			  	  
+	  	  	} else {
+	  	  		console.log("buffering");
+		  	  	buffer += data;
+	  	  	}
+	  	  }  
+	  }
     });
 };
 }());
 </script>
 	<body>
 	<div id="content">
+		<canvas name="fft" id="fft" width='300' height='300'></canvas>
 		<img id="album_art" src="" />
 		<div id="id3">
 			<div id="id3_artist_name"></div>

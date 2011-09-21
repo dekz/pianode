@@ -1,3 +1,6 @@
+# Stories in Flight Visualizer courtesy of Thomas Sturm 
+# www.storiesinflight.com/jsfft/visualizer_webaudio/
+
 theme = ["rgba(255, 255, 255,","rgba(240, 240, 240,","rgba(210, 210, 210,","rgba(180, 180, 180,","rgba(150, 150, 150,","rgba(120, 120, 150,","rgba(90, 90, 150,","rgba(60, 60, 180,","rgba(30, 30, 180,","rgba(0, 0, 200,","rgba(0, 0, 210,","rgba(0, 0, 220,","rgba(0, 0, 230,","rgba(0, 0, 240,","rgba(0, 0, 255,","rgba(0, 30, 255,","rgba(0, 60, 255,","rgba(0, 90, 255,","rgba(0, 120, 255,","rgba(0, 150, 255,"]
 frameBufferSize = 4096
 bufferSize = frameBufferSize/4
@@ -45,7 +48,7 @@ class Visualisation
 				new_pos(@canvas.width/2 - i*4 + 4,(@canvas.height/2)+magnitude+20);
 			else
 				if maxvalue[i] > 10
-					maxvalue[i]--
+					maxvalue[i] -= 5
 	
 	visualizer: =>
 		@ctx.clearRect(0,0, @canvas.width, @canvas.height)
