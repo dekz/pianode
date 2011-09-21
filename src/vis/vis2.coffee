@@ -5,6 +5,8 @@ theme = ["rgba(255, 255, 255,","rgba(240, 240, 240,","rgba(210, 210, 210,","rgba
 frameBufferSize = 4096
 bufferSize = frameBufferSize/4
 fft = new FFT(bufferSize, 44100)
+albumArt = new Image()
+albumArt.src = $("#album_art").attr('src')
 
 histoindex = 0
 histomax = 500
@@ -52,6 +54,11 @@ class Visualisation
 	
 	visualizer: =>
 		@ctx.clearRect(0,0, @canvas.width, @canvas.height)
+		albumArt.src = $("#album_art").attr('src')
+
+		@ctx.globalAlpha = 0.5
+		@ctx.drawImage(albumArt, @canvas.height/2, @canvas.width/2)
+		@ctx.globalAlpha = 1
 		for h in [0..histomax]
 			if histobuffer_t[h] > 0
 				size = histobuffer_t[h] * 4
