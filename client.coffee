@@ -26,7 +26,7 @@ load = ->
       if stream?
         stream.buffer data
       else
-        if buffer.length+data.length >= 1024
+        if buffer.length+data.length >= 2048
           stream = new Mad.StringStream(buffer+data)
           buffer = ''
           $("#album_art").attr("src", song.artRadio)
@@ -35,14 +35,13 @@ load = ->
 
           if !player?
             player = new Mad.Player(stream)
-            player.createDevice()
+            player.createDevice ->
+              oldAudioProcess = player.dev._node.onaudioprocess
+              newAudioProcess = (e) ->
+                oldAudioProcess(e)
+                vis.audioAvailable(e)
+              player.dev._node.onaudioprocess = newAudioProcess
 
-            player.onProgress = (playtime, total, preloaded) ->
-              playing_time.text(secondsToHms(playtime))
-              if total is playtime and playtime isnt 0
-                console.log 'Getting a new song'
-                nextSong()
-            
             player.onPlay = () ->
               $("#toggle_play_button").text("Pause")
             
@@ -51,12 +50,17 @@ load = ->
 
             player.setPlaying(true)
 
+            player.onProgress = (playtime, total, preloaded) ->
+              playing_time.text(secondsToHms(playtime))
+              if total is playtime and playtime isnt 0
+                nextSong()
+
             oldAudioProcess = player.dev._node.onaudioprocess
             newAudioProcess = (e) ->
               oldAudioProcess(e)
               vis.audioAvailable(e)
-
             player.dev._node.onaudioprocess = newAudioProcess
+            
         else
           buffer += data
 

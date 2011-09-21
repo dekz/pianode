@@ -12,7 +12,7 @@ Mad.Player = function (stream) {
 };
 
 // Create a device.
-Mad.Player.prototype.createDevice = function() {
+Mad.Player.prototype.createDevice = function(cb) {
 	var synth = new Mad.Synth();
 	this.frame = new Mad.Frame();
 	this.frame = Mad.Frame.decode(this.frame, this.mpeg);
@@ -49,16 +49,17 @@ Mad.Player.prototype.createDevice = function() {
 		
 		var index = 0;
 
+		if (!self.mpeg.stream.parentStream.absoluteAvailable(1024)) return;
+
 		while (index < sampleBuffer.length) {
 			for (var i = 0; i < self.channelCount; ++i) {
 				sampleBuffer[index++] = synth.pcm.samples[i][self.offset];
 			}
 
 			self.offset++;
-			
+
 			if (self.offset >= synth.pcm.samples[0].length) {
 				self.offset = 0;
-				if (!self.mpeg.stream.parentStream.absoluteAvailable(1024)) return;
 				self.frame = Mad.Frame.decode(self.frame, self.mpeg);
 				if (self.frame == null) {
 					if (self.stream.error == Mad.Error.BUFLEN) {
@@ -81,14 +82,14 @@ Mad.Player.prototype.createDevice = function() {
 		}
 
 	};
-	
-	this.reinitDevice();
+	this.reinitDevice(cb);
 };
 
-Mad.Player.prototype.reinitDevice = function() {
+Mad.Player.prototype.reinitDevice = function(cb) {
 	if(this.dev) this.dev.kill();
 	var preBufferSize = 65536 * 4096;
 	this.dev = audioLib.AudioDevice(this.refill, this.channelCount, preBufferSize, this.sampleRate);
+	cb();
 }
 
 Mad.Player.prototype.setPlaying = function(playing) {
