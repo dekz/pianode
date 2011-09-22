@@ -80,7 +80,7 @@ getNextSong = (cb) ->
     console.log 'Out of items in the playlist, getting a new one'
     pandora.getPlaylist t, User.authToken, User.currentStation.id, info.audio_format
   else
-    [song] = User.currentPlaylist
+    song = User.currentPlaylist.pop()
     User.currentSong = song
     console.log "getting #{User.currentSong.songTitle}"
     pandora.getSong song

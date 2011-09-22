@@ -28,21 +28,21 @@ load = ->
   playing_time = $('#playing_time')
   $('#toggle_play_button').click(pause)
   $('#nextSong').click(nextSong)
-  canvas = $('#fft')
 
   socket = io.connect 'http://localhost:1337'
   socket.emit 'newSong'
 
   buffer = ''
   visTimer = null
-  console.log canvas
   socket.on 'pandora_newSong', (song) -> 
     console.log song
   
+  canvas = null
   socket.on 'data', (song, data) ->
+    canvas = $('#fft')[0]
     if stream? then stream.buffer data
     else
-      if (buffer.length + data.length) >= (50*1024)
+      if (buffer.length + data.length) >= (1024)
         stream = new Mad.StringStream buffer + data
         # TODO remove this options setting of nothing
         #stream.options = {}
@@ -53,12 +53,13 @@ load = ->
         
         unless currentSong? then currentSong = song
         
-        #unless vis? and canvas?
-        #  vis = new Visualisation canvas
-        #  vis.visualizer song
+        unless vis? and canvas?
+          console.log canvas
+          vis = new Visualisation canvas
+          vis.visualizer song
         
-        #unless visTimer? and canvas?
-        #  visTimer = setInterval (-> vis.visualizer song), 50
+        unless visTimer? and canvas?
+          visTimer = setInterval (-> vis.visualizer song), 50
 
         unless player?
           player = new Mad.Player stream
@@ -89,7 +90,6 @@ load = ->
             if total is playtime and playtime isnt 0
               nextSong()
       else
-        console.log 'buffering'
         buffer += data
 
 secondsToHms = (d) ->
