@@ -1,6 +1,6 @@
 pandora_host = "www.pandora.com"
 pandora_rpc_port = 80
-pandora_protocol_version = "31"
+pandora_protocol_version = "32"
 pandora_rpc_path = "/radio/xmlrpc/v" + pandora_protocol_version + "?"
 
 crypt = require('./crypt.js')

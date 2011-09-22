@@ -138,7 +138,7 @@ getCredentials = (cb) ->
 
 app = connect()
 app.use connect.static "#{__dirname}/client/public"
-app.use browserify entry: "#{__dirname}/client/entry.coffee", watch: on
+app.use browserify entry: "#{__dirname}/client/entry.coffee"
 app.listen 1337
 
 io = socket_io.listen app
