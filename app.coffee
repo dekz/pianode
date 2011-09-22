@@ -159,6 +159,8 @@ io.sockets.on 'connection', (socket) ->
     if User.currentSong is null or User.currentSong is song
       User.currentSong = song
       socket.emit 'data', song, chunk
+      if song.fileState is 'complete'
+        socket.emit 'pandora_songEnd', song
   
   socket.on 'newSong', ->
     getNextSong (song) ->

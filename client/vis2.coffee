@@ -30,6 +30,7 @@ class Visualisation
 	constructor: (canvas) ->
 		@canvas = canvas
 		@ctx = canvas.getContext('2d')
+		albumArt = new Image()
 		
 	
 	audioAvailable: (event) ->

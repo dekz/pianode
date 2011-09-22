@@ -30,14 +30,17 @@ load = ->
   $('#nextSong').click(nextSong)
 
   socket = io.connect 'http://localhost:1337'
-  socket.emit 'newSong'
 
   buffer = ''
   visTimer = null
+  socket.emit 'newSong'
+
   socket.on 'pandora_newSong', (song) -> 
     console.log song
   
-  canvas = null
+  socket.on 'pandora_songEnd', (song) ->
+    console.log 'I now have all data for this song'
+
   socket.on 'data', (song, data) ->
     canvas = $('#fft')[0]
     if stream? then stream.buffer data
